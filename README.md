@@ -37,10 +37,6 @@
 
 ## 新增新功能的步驟
 
-1. **新增 Entity** → 在 `model/` 繼承 `BaseEntity`
-2. **新增 Repository** → 在 `repository/` 繼承 `JpaRepository`
-3. **新增 Service** → 在 `service/` 寫業務邏輯
-4. **新增 Controller** → 在 `controller/` 寫 REST API
 
 ## Git 初始化
 
