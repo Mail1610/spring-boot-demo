@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>加密貨幣技術分析</title>
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Header ───────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  height: 52px;
+  flex-shrink: 0;
+}
+.logo { font-size: 16px; font-weight: 700; color: #58a6ff; margin-right: 8px; white-space: nowrap; }
+.coin-btn {
+  padding: 5px 12px;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: transparent;
+  color: #8b949e;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.coin-btn.active  { background: #1f6feb; border-color: #388bfd; color: #fff; }
+.coin-btn:hover:not(.active) { background: #21262d; color: #e6edf3; }
+.spacer { flex: 1; }
+.refresh-btn {
+  padding: 5px 14px;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #21262d;
+  color: #8b949e;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+.refresh-btn:hover { background: #30363d; color: #e6edf3; }
+.refresh-btn.loading { opacity: 0.5; pointer-events: none; }
+
+/* ── Main Layout ──────────────────────────────────────── */
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 310px;
+  height: calc(100vh - 52px);
+}
+
+/* ── Charts Area ──────────────────────────────────────── */
+.charts-col {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+.chart-wrap          { position: relative; overflow: hidden; }
+.chart-wrap.main     { flex: 1; min-height: 0; }
+.chart-wrap.sub      { flex-shrink: 0; border-top: 1px solid #21262d; }
+.chart-label {
+  position: absolute;
+  top: 6px; left: 8px;
+  z-index: 5;
+  font-size: 10px;
+  color: #484f58;
+  background: rgba(13,17,23,0.75);
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+/* ── Sidebar ──────────────────────────────────────────── */
+.sidebar {
+  border-left: 1px solid #30363d;
+  overflow-y: auto;
+  padding: 14px;
+  background: #0d1117;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sidebar::-webkit-scrollbar       { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+
+/* ── Signal Card ──────────────────────────────────────── */
+.signal-card  { border-radius: 10px; padding: 14px 16px; text-align: center; border: 1px solid; }
+.signal-tag   { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.7; margin-bottom: 4px; }
+.signal-text  { font-size: 22px; font-weight: 800; letter-spacing: 1px; }
+.signal-sub   { font-size: 11px; margin-top: 4px; opacity: 0.6; }
+.STRONG_BUY   { background: rgba(0,255,136,0.08); border-color: #00ff88; color: #00ff88; }
+.BUY          { background: rgba(63,185,80,0.08);  border-color: #3fb950; color: #3fb950; }
+.NEUTRAL      { background: rgba(88,166,255,0.08); border-color: #58a6ff; color: #58a6ff; }
+.WAIT         { background: rgba(210,153,34,0.08); border-color: #d29922; color: #d29922; }
+.STRONG_SELL  { background: rgba(248,81,73,0.08);  border-color: #f85149; color: #f85149; }
+
+/* ── Price Block ──────────────────────────────────────── */
+.price-block .coin-name { font-size: 10px; color: #484f58; margin-bottom: 3px; letter-spacing: 0.5px; }
+.price-block .price-val { font-size: 20px; font-weight: 700; }
+.price-block .price-chg { font-size: 12px; margin-top: 2px; }
+.pos { color: #3fb950; }
+.neg { color: #f85149; }
+
+/* ── Indicator Group ──────────────────────────────────── */
+.group-title {
+  font-size: 10px;
+  color: #388bfd;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #21262d;
+  margin-bottom: 6px;
+}
+.ind-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 12px; }
+.ind-name { color: #6e7681; }
+.ind-val  { font-weight: 600; }
+
+/* ── Recommendation ───────────────────────────────────── */
+.rec-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #8b949e;
+}
+.rec-title { font-size: 10px; color: #388bfd; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+
+/* ── Legend ───────────────────────────────────────────── */
+.legend { display: flex; flex-wrap: wrap; gap: 8px; }
+.legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #484f58; }
+.legend-dot  { width: 10px; height: 2px; border-radius: 1px; }
+
+/* ── Spinner ──────────────────────────────────────────── */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(13,17,23,0.85);
+  z-index: 20;
+  font-size: 13px;
+  color: #484f58;
+  gap: 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid #30363d;
+  border-top-color: #388bfd;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ── 手機響應式 ────────────────────────────────────────── */
+@media (max-width: 768px) {
+  body { overflow: auto; height: auto; }
+
+  .header {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  .logo { font-size: 14px; width: 100%; margin: 0; }
+  .coin-btn { padding: 6px 10px; font-size: 12px; }
+  .spacer { display: none; }
+  .refresh-btn { margin-left: auto; }
+
+  .layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .charts-col { overflow: visible; }
+  .chart-wrap.main { height: 300px; }
+  .chart-wrap.sub  { height: 120px; }
+
+  .sidebar {
+    border-left: none;
+    border-top: 1px solid #30363d;
+    padding: 12px;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">📊 加密貨幣技術分析</div>
+  <button class="coin-btn active" data-coin="bitcoin">BTC</button>
+  <button class="coin-btn" data-coin="ethereum">ETH</button>
+  <button class="coin-btn" data-coin="solana">SOL</button>
+  <button class="coin-btn" data-coin="bnb">BNB</button>
+  <button class="coin-btn" data-coin="xrp">XRP</button>
+  <button class="coin-btn" data-coin="dogecoin">DOGE</button>
+  <button class="coin-btn" data-coin="cardano">ADA</button>
+  <button class="coin-btn" data-coin="avalanche-2">AVAX</button>
+  <div class="spacer"></div>
+  <button class="refresh-btn" id="refreshBtn">↻ 重新整理</button>
+</div>
+
+<div class="layout">
+  <div class="charts-col">
+    <div class="chart-wrap main" id="mainWrap">
+      <div class="chart-label">K線 &bull; 布林通道 &bull; MA20 &bull; MA50</div>
+      <div id="mainChart" style="width:100%;height:100%"></div>
+    </div>
+    <div class="chart-wrap sub" id="rsiWrap" style="height:110px">
+      <div class="chart-label">RSI (14) — 超賣 &lt;30 / 超買 &gt;70</div>
+      <div id="rsiChart" style="width:100%;height:100%"></div>
+    </div>
+    <div class="chart-wrap sub" id="macdWrap" style="height:110px">
+      <div class="chart-label">MACD (12, 26, 9)</div>
+      <div id="macdChart" style="width:100%;height:100%"></div>
+    </div>
+  </div>
+
+  <div class="sidebar" id="sidebar">
+    <div style="color:#484f58;font-size:12px;margin:auto;align-self:center">選擇幣種載入分析...</div>
+  </div>
+</div>
+
+<script>
+let currentCoin = 'bitcoin';
+let chartMain = null, chartRSI = null, chartMACD = null;
+let syncing = false;
+
+const BASE_OPTS = {
+  layout: { background: { color: '#0d1117' }, textColor: '#484f58' },
+  grid:   { vertLines: { color: '#161b22' }, horzLines: { color: '#161b22' } },
+  crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+  rightPriceScale: { borderColor: '#21262d' },
+  timeScale: { borderColor: '#21262d', timeVisible: true, secondsVisible: false },
+};
+
+function buildCharts() {
+  if (chartMain) { chartMain.remove(); chartRSI.remove(); chartMACD.remove(); }
+
+  const mainEl = document.getElementById('mainChart');
+  const rsiEl  = document.getElementById('rsiChart');
+  const macdEl = document.getElementById('macdChart');
+
+  chartMain = LightweightCharts.createChart(mainEl, {
+    ...BASE_OPTS, width: mainEl.clientWidth, height: mainEl.clientHeight,
+  });
+  chartRSI = LightweightCharts.createChart(rsiEl, {
+    ...BASE_OPTS,
+    width: rsiEl.clientWidth, height: rsiEl.clientHeight,
+    timeScale: { ...BASE_OPTS.timeScale, visible: false },
+    rightPriceScale: { borderColor: '#21262d', scaleMargins: { top: 0.1, bottom: 0.1 } },
+  });
+  chartMACD = LightweightCharts.createChart(macdEl, {
+    ...BASE_OPTS,
+    width: macdEl.clientWidth, height: macdEl.clientHeight,
+    rightPriceScale: { borderColor: '#21262d', scaleMargins: { top: 0.15, bottom: 0.15 } },
+  });
+
+  // Sync scroll/zoom across all 3 charts
+  [chartMain, chartRSI, chartMACD].forEach(src => {
+    src.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      if (syncing || !range) return;
+      syncing = true;
+      [chartMain, chartRSI, chartMACD].forEach(t => { if (t !== src) t.timeScale().setVisibleLogicalRange(range); });
+      syncing = false;
+    });
+  });
+}
+
+function renderCharts(d) {
+  buildCharts();
+
+  // Candlesticks
+  const candle = chartMain.addCandlestickSeries({
+    upColor: '#3fb950', downColor: '#f85149',
+    borderVisible: false,
+    wickUpColor: '#3fb950', wickDownColor: '#f85149',
+  });
+  candle.setData(d.candles);
+
+  // Marker on last candle
+  const last = d.candles[d.candles.length - 1];
+  if (d.signal === 'STRONG_BUY' || d.signal === 'BUY') {
+    candle.setMarkers([{ time: last.time, position: 'belowBar', shape: 'arrowUp', color: '#00ff88', text: d.signal === 'STRONG_BUY' ? '強力入場' : '入場' }]);
+  } else if (d.signal === 'STRONG_SELL') {
+    candle.setMarkers([{ time: last.time, position: 'aboveBar', shape: 'arrowDown', color: '#f85149', text: '強力離場' }]);
+  }
+
+  // Bollinger Bands
+  if (d.bbUpperSeries?.length) {
+    const opt = { lastValueVisible: false, priceLineVisible: false, lineWidth: 1 };
+    const bbU = chartMain.addLineSeries({ ...opt, color: 'rgba(248,81,73,0.5)' });
+    bbU.setData(d.bbUpperSeries);
+    const bbM = chartMain.addLineSeries({ ...opt, color: 'rgba(210,153,34,0.5)', lineStyle: 2 });
+    bbM.setData(d.bbMiddleSeries);
+    const bbL = chartMain.addLineSeries({ ...opt, color: 'rgba(63,185,80,0.5)' });
+    bbL.setData(d.bbLowerSeries);
+  }
+
+  // SMA lines
+  if (d.sma20Series?.length) {
+    const s = chartMain.addLineSeries({ color: '#388bfd', lineWidth: 1, lastValueVisible: false, priceLineVisible: false, title: 'MA20' });
+    s.setData(d.sma20Series);
+  }
+  if (d.sma50Series?.length) {
+    const s = chartMain.addLineSeries({ color: '#d29922', lineWidth: 1, lastValueVisible: false, priceLineVisible: false, title: 'MA50' });
+    s.setData(d.sma50Series);
+  }
+
+  // S/R price lines on candlestick series
+  if (d.srLevels?.length) {
+    d.srLevels.forEach(lvl => {
+      candle.createPriceLine({
+        price: lvl.price,
+        color: lvl.type === 'SUPPORT' ? 'rgba(63,185,80,0.65)' : 'rgba(248,81,73,0.65)',
+        lineWidth: 1,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: lvl.type === 'SUPPORT' ? `S(${lvl.strength})` : `R(${lvl.strength})`,
+      });
+    });
+  }
+
+  // RSI
+  if (d.rsiSeries?.length) {
+    const lineOpt = { lastValueVisible: false, priceLineVisible: false, lineWidth: 1, lineStyle: 2 };
+    chartRSI.addLineSeries({ ...lineOpt, color: 'rgba(248,81,73,0.4)' }).setData(d.rsiSeries.map(p => ({ time: p.time, value: 70 })));
+    chartRSI.addLineSeries({ ...lineOpt, color: 'rgba(63,185,80,0.4)'  }).setData(d.rsiSeries.map(p => ({ time: p.time, value: 30 })));
+    const rsiLine = chartRSI.addLineSeries({ color: '#bc8cff', lineWidth: 2, priceLineVisible: false });
+    rsiLine.setData(d.rsiSeries);
+  }
+
+  // MACD
+  if (d.macdSeries?.length) {
+    const hist = chartMACD.addHistogramSeries({ lastValueVisible: false, priceLineVisible: false });
+    hist.setData(d.macdSeries.map(p => ({ time: p.time, value: p.histogram, color: p.histogram >= 0 ? 'rgba(63,185,80,0.7)' : 'rgba(248,81,73,0.7)' })));
+    const ml = chartMACD.addLineSeries({ color: '#388bfd', lineWidth: 2, priceLineVisible: false });
+    ml.setData(d.macdSeries.map(p => ({ time: p.time, value: p.macd })));
+    const sl = chartMACD.addLineSeries({ color: '#d29922', lineWidth: 1, priceLineVisible: false });
+    sl.setData(d.macdSeries.map(p => ({ time: p.time, value: p.signal })));
+  }
+}
+
+const SIG = {
+  STRONG_BUY:  ['強力買入 ▲▲', '超賣 + 觸及布林下軌'],
+  BUY:         ['考慮買入 ▲',  'RSI偏低 或 MACD金叉'],
+  NEUTRAL:     ['中性觀望 →',  '等待更明確訊號'],
+  WAIT:        ['暫緩觀望 ↓',  'RSI偏高 或 MACD死叉'],
+  STRONG_SELL: ['強力離場 ▼▼', '超買 + 觸及布林上軌'],
+};
+
+function fmt(v) {
+  if (v >= 1000) return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (v >= 1)    return v.toFixed(4);
+  return v.toFixed(6);
+}
+
+function bbPos(price, upper, lower) {
+  if (!upper || !lower) return '—';
+  if (price >= upper)   return `<span class="neg">觸及上軌 ⚠</span>`;
+  if (price <= lower)   return `<span class="pos">觸及下軌 ✓</span>`;
+  return `<span style="color:#8b949e">${Math.round((price - lower) / (upper - lower) * 100)}% 位置</span>`;
+}
+
+function srSection(levels, currentPrice) {
+  if (!levels?.length) return '';
+  const supports    = levels.filter(l => l.type === 'SUPPORT')   .sort((a, b) => b.price - a.price);
+  const resistances = levels.filter(l => l.type === 'RESISTANCE').sort((a, b) => a.price - b.price);
+  const rows = (arr, color) => arr.slice(0, 4).map(l => {
+    const dist = Math.abs((l.price - currentPrice) / currentPrice * 100).toFixed(2);
+    return `<div class="ind-row">
+      <span class="ind-name" style="color:${color}">$${fmt(l.price)} <span style="font-size:10px;color:#484f58">(${dist}%)</span></span>
+      <span class="ind-val" style="color:#484f58;font-size:10px">強度 ${l.strength}</span>
+    </div>`;
+  }).join('');
+  return `<div>
+    <div class="group-title">支撐 / 阻力 (SNR)</div>
+    <div style="font-size:10px;color:#f85149;margin-bottom:4px">▲ 阻力</div>
+    ${rows(resistances, '#f85149') || '<div style="color:#484f58;font-size:11px;padding:2px 0">無</div>'}
+    <div style="border-top:1px dashed #21262d;margin:6px 0"></div>
+    <div style="font-size:10px;color:#3fb950;margin-bottom:4px">▼ 支撐</div>
+    ${rows(supports, '#3fb950') || '<div style="color:#484f58;font-size:11px;padding:2px 0">無</div>'}
+  </div>`;
+}
+
+function renderSidebar(d) {
+  const [sigText, sigSub] = SIG[d.signal] || ['—', ''];
+  const cc = d.priceChange24h >= 0 ? 'pos' : 'neg';
+  const cp = d.priceChange24h >= 0 ? '+' : '';
+  const rc = d.rsi < 30 ? '#00ff88' : d.rsi > 70 ? '#f85149' : d.rsi < 50 ? '#3fb950' : '#d29922';
+  const mc = d.macd >= d.macdSignal ? '#3fb950' : '#f85149';
+  const mt = d.macd >= d.macdSignal ? '金叉 ✓' : '死叉 ✗';
+  const tc = d.sma20 > d.sma50 ? '#3fb950' : '#f85149';
+  const tt = d.sma20 > d.sma50 ? '多頭 ↑' : '空頭 ↓';
+
+  document.getElementById('sidebar').innerHTML = `
+    <div class="signal-card ${d.signal}">
+      <div class="signal-tag">交易訊號</div>
+      <div class="signal-text">${sigText}</div>
+      <div class="signal-sub">${sigSub}</div>
+    </div>
+
+    <div class="price-block">
+      <div class="coin-name">${d.symbol} / USD</div>
+      <div class="price-val">$${fmt(d.currentPrice)}</div>
+      <div class="price-chg ${cc}">${cp}${d.priceChange24h.toFixed(2)}% (24h)</div>
+    </div>
+
+    <div>
+      <div class="group-title">動能指標</div>
+      <div class="ind-row"><span class="ind-name">RSI (14)</span><span class="ind-val" style="color:${rc}">${d.rsi.toFixed(1)}</span></div>
+      <div class="ind-row"><span class="ind-name">MACD 狀態</span><span class="ind-val" style="color:${mc}">${mt}</span></div>
+      <div class="ind-row"><span class="ind-name">MACD 值</span><span class="ind-val">${d.macd.toFixed(2)}</span></div>
+      <div class="ind-row"><span class="ind-name">Signal 值</span><span class="ind-val">${d.macdSignal.toFixed(2)}</span></div>
+      <div class="ind-row"><span class="ind-name">Histogram</span><span class="ind-val" style="color:${d.macdHistogram>=0?'#3fb950':'#f85149'}">${d.macdHistogram.toFixed(2)}</span></div>
+    </div>
+
+    <div>
+      <div class="group-title">移動均線</div>
+      <div class="ind-row"><span class="ind-name">MA 20</span><span class="ind-val" style="color:#388bfd">$${fmt(d.sma20)}</span></div>
+      <div class="ind-row"><span class="ind-name">MA 50</span><span class="ind-val" style="color:#d29922">$${fmt(d.sma50)}</span></div>
+      <div class="ind-row"><span class="ind-name">趨勢</span><span class="ind-val" style="color:${tc}">${tt}</span></div>
+    </div>
+
+    <div>
+      <div class="group-title">布林通道 (20, 2)</div>
+      <div class="ind-row"><span class="ind-name">上軌</span><span class="ind-val" style="color:#f85149">$${fmt(d.bbUpper)}</span></div>
+      <div class="ind-row"><span class="ind-name">中軌</span><span class="ind-val" style="color:#d29922">$${fmt(d.bbMiddle)}</span></div>
+      <div class="ind-row"><span class="ind-name">下軌</span><span class="ind-val" style="color:#3fb950">$${fmt(d.bbLower)}</span></div>
+      <div class="ind-row"><span class="ind-name">目前位置</span><span class="ind-val">${bbPos(d.currentPrice, d.bbUpper, d.bbLower)}</span></div>
+    </div>
+
+    ${srSection(d.srLevels, d.currentPrice)}
+
+    <div>
+      <div class="rec-title">分析建議</div>
+      <div class="rec-card">${d.recommendation}</div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#388bfd"></div>MA20</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#d29922"></div>MA50</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(248,81,73,0.7)"></div>BB上</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(63,185,80,0.7)"></div>BB下</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#bc8cff"></div>RSI</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#388bfd"></div>MACD</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#d29922"></div>Signal</div>
+    </div>
+  `;
+}
+
+function showLoading(on) {
+  let el = document.getElementById('loadingOverlay');
+  if (on && !el) {
+    el = document.createElement('div');
+    el.id = 'loadingOverlay';
+    el.className = 'loading-overlay';
+    el.innerHTML = '<div class="spinner"></div><span>載入中...</span>';
+    document.querySelector('.charts-col').appendChild(el);
+  }
+  if (el) el.style.display = on ? 'flex' : 'none';
+}
+
+async function loadAnalysis(coinId) {
+  showLoading(true);
+  document.getElementById('refreshBtn').classList.add('loading');
+  try {
+    const res = await fetch(`/api/crypto/analysis/${coinId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    renderCharts(data);
+    renderSidebar(data);
+    resizeCharts();
+  } catch (err) {
+    document.getElementById('sidebar').innerHTML =
+      `<div style="color:#f85149;padding:16px;font-size:12px">載入失敗：${err.message}<br><br>請確認 Spring Boot 已啟動</div>`;
+  } finally {
+    showLoading(false);
+    document.getElementById('refreshBtn').classList.remove('loading');
+  }
+}
+
+document.querySelectorAll('.coin-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.coin-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentCoin = btn.dataset.coin;
+    loadAnalysis(currentCoin);
+  });
+});
+
+document.getElementById('refreshBtn').addEventListener('click', () => loadAnalysis(currentCoin));
+
+function resizeCharts() {
+  if (!chartMain) return;
+  const isMobile = window.innerWidth <= 768;
+  const mainWrap = document.getElementById('mainWrap');
+  const rsiWrap  = document.getElementById('rsiWrap');
+  const macdWrap = document.getElementById('macdWrap');
+  if (isMobile) {
+    mainWrap.style.height = '300px';
+    rsiWrap.style.height  = '120px';
+    macdWrap.style.height = '120px';
+  }
+  const r = id => document.getElementById(id);
+  chartMain.resize(r('mainChart').clientWidth, r('mainChart').clientHeight);
+  chartRSI .resize(r('rsiChart') .clientWidth, r('rsiChart') .clientHeight);
+  chartMACD.resize(r('macdChart').clientWidth, r('macdChart').clientHeight);
+}
+window.addEventListener('resize', resizeCharts);
+
+window.addEventListener('load', () => loadAnalysis(currentCoin));
+</script>
+</body>
+</html>
