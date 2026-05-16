@@ -1,6 +1,6 @@
 package com.demo.controller;
 
-import com.demo.model.Item;
+import com.demo.entity.Item;
 import com.demo.service.ItemService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

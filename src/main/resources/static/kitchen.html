@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>廚房顯示</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Microsoft JhengHei', sans-serif; background: #1a1a2e; color: #eee; }
+  header { background: #16213e; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e94560; }
+  header h1 { font-size: 1.4rem; color: #e94560; }
+  .status-bar { font-size: 0.85rem; color: #aaa; }
+  .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; max-width: 1400px; margin: 0 auto; }
+  .column h2 { font-size: 1rem; padding: 10px 16px; border-radius: 6px 6px 0 0; text-align: center; font-weight: bold; letter-spacing: 2px; }
+  .pending h2 { background: #e67e22; }
+  .preparing h2 { background: #2980b9; }
+  .order-card { background: #16213e; border-radius: 0 0 8px 8px; margin-bottom: 12px; overflow: hidden; border: 1px solid #0f3460; }
+  .order-card:not(:first-child) { border-radius: 8px; }
+  .order-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0f3460; }
+  .order-header .table { font-weight: bold; font-size: 1.1rem; color: #e94560; }
+  .order-header .time { font-size: 0.8rem; color: #aaa; }
+  .order-items { padding: 10px 14px; }
+  .order-item { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.95rem; border-bottom: 1px solid #0f3460; }
+  .order-item:last-child { border-bottom: none; }
+  .order-item .qty { color: #e94560; font-weight: bold; }
+  .order-footer { padding: 10px 14px; display: flex; gap: 8px; justify-content: flex-end; background: #0a1628; }
+  .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: bold; }
+  .btn-start { background: #2980b9; color: white; }
+  .btn-done { background: #27ae60; color: white; }
+  .btn:hover { opacity: 0.85; }
+  .empty { text-align: center; color: #555; padding: 40px; font-size: 0.9rem; }
+  .badge { background: #e94560; color: white; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; margin-left: 8px; }
+  .total { font-size: 0.85rem; color: #aaa; padding: 0 14px 10px; }
+  nav a { color: #aaa; text-decoration: none; font-size: 0.9rem; margin-left: 16px; }
+  nav a:hover { color: white; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🍳 廚房顯示</h1>
+  <div style="display:flex;align-items:center;gap:24px">
+    <span class="status-bar" id="lastUpdate">載入中...</span>
+    <nav><a href="/">點餐</a><a href="/admin.html">管理</a></nav>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="column pending">
+    <h2>待處理 <span class="badge" id="pendingCount">0</span></h2>
+    <div id="pendingOrders"></div>
+  </div>
+  <div class="column preparing">
+    <h2>製作中 <span class="badge" id="preparingCount">0</span></h2>
+    <div id="preparingOrders"></div>
+  </div>
+</div>
+
+<script>
+async function loadOrders() {
+  try {
+    const [pendingRes, preparingRes] = await Promise.all([
+      fetch('/api/orders?status=PENDING'),
+      fetch('/api/orders?status=PREPARING')
+    ]);
+    const pending = (await pendingRes.json()).data || [];
+    const preparing = (await preparingRes.json()).data || [];
+
+    document.getElementById('pendingCount').textContent = pending.length;
+    document.getElementById('preparingCount').textContent = preparing.length;
+    document.getElementById('pendingOrders').innerHTML = renderOrders(pending, 'pending');
+    document.getElementById('preparingOrders').innerHTML = renderOrders(preparing, 'preparing');
+    document.getElementById('lastUpdate').textContent = '更新：' + new Date().toLocaleTimeString('zh-TW');
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function renderOrders(orders, type) {
+  if (orders.length === 0) return `<p class="empty">目前沒有訂單</p>`;
+  return orders.map(o => `
+    <div class="order-card">
+      <div class="order-header">
+        <span class="table">桌號：${o.tableNumber}</span>
+        <span class="time">#${o.id} · ${formatTime(o.createdAt)}</span>
+      </div>
+      <div class="order-items">
+        ${o.items.map(i => `
+          <div class="order-item">
+            <span>${i.menuItemName}</span>
+            <span class="qty">x${i.quantity}</span>
+          </div>`).join('')}
+      </div>
+      <div class="total">合計：$${o.totalAmount}</div>
+      <div class="order-footer">
+        ${type === 'pending'
+          ? `<button class="btn btn-start" onclick="updateStatus(${o.id},'PREPARING')">開始製作</button>`
+          : `<button class="btn btn-done" onclick="updateStatus(${o.id},'DONE')">完成</button>`}
+      </div>
+    </div>`).join('');
+}
+
+async function updateStatus(id, status) {
+  await fetch(`/api/orders/${id}/status`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status })
+  });
+  loadOrders();
+}
+
+function formatTime(dt) {
+  if (!dt) return '';
+  return new Date(dt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+}
+
+loadOrders();
+setInterval(loadOrders, 10000);
+</script>
+</body>
+</html>

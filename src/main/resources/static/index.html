@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>點餐系統</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Microsoft JhengHei', sans-serif; background: #f5f5f5; }
+  header { background: #d32f2f; color: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 1.4rem; }
+  .layout { display: flex; gap: 16px; padding: 16px; max-width: 1200px; margin: 0 auto; }
+  .menu-section { flex: 1; }
+  .cart-section { width: 320px; background: white; border-radius: 8px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); align-self: flex-start; position: sticky; top: 16px; }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .tab { padding: 8px 16px; border: none; border-radius: 20px; background: #e0e0e0; cursor: pointer; font-size: 0.9rem; }
+  .tab.active { background: #d32f2f; color: white; }
+  .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .menu-card { background: white; border-radius: 8px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); cursor: pointer; transition: transform 0.15s; }
+  .menu-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  .menu-card h3 { font-size: 1rem; margin-bottom: 4px; }
+  .menu-card p { font-size: 0.8rem; color: #666; margin-bottom: 8px; }
+  .menu-card .price { color: #d32f2f; font-weight: bold; font-size: 1.1rem; }
+  .menu-card .add-btn { float: right; background: #d32f2f; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 1.2rem; line-height: 28px; text-align: center; }
+  .cart-section h2 { font-size: 1.1rem; margin-bottom: 12px; border-bottom: 2px solid #d32f2f; padding-bottom: 8px; }
+  .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+  .cart-item-name { font-size: 0.9rem; flex: 1; }
+  .qty-ctrl { display: flex; align-items: center; gap: 6px; }
+  .qty-ctrl button { width: 24px; height: 24px; border: 1px solid #ccc; background: white; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+  .qty-ctrl span { min-width: 20px; text-align: center; font-size: 0.9rem; }
+  .cart-item-price { font-size: 0.9rem; color: #d32f2f; min-width: 60px; text-align: right; }
+  .cart-empty { text-align: center; color: #999; padding: 24px 0; font-size: 0.9rem; }
+  .cart-total { display: flex; justify-content: space-between; font-weight: bold; padding: 12px 0; border-top: 2px solid #eee; margin-top: 8px; }
+  .table-input { width: 100%; padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; margin: 12px 0; font-size: 1rem; }
+  .submit-btn { width: 100%; padding: 12px; background: #d32f2f; color: white; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; font-weight: bold; }
+  .submit-btn:hover { background: #b71c1c; }
+  .submit-btn:disabled { background: #ccc; cursor: not-allowed; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #323232; color: white; padding: 12px 24px; border-radius: 6px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; }
+  .toast.show { opacity: 1; }
+  .nav-links { display: flex; gap: 16px; }
+  .nav-links a { color: white; text-decoration: none; font-size: 0.9rem; opacity: 0.85; }
+  .nav-links a:hover { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🍽 點餐系統</h1>
+  <nav class="nav-links">
+    <a href="/kitchen.html">廚房</a>
+    <a href="/admin.html">管理</a>
+  </nav>
+</header>
+
+<div class="layout">
+  <div class="menu-section">
+    <div class="tabs" id="tabs"></div>
+    <div class="menu-grid" id="menuGrid"></div>
+  </div>
+
+  <div class="cart-section">
+    <h2>購物車</h2>
+    <div id="cartItems"><p class="cart-empty">尚未選擇餐點</p></div>
+    <div class="cart-total" id="cartTotal" style="display:none">
+      <span>總計</span><span id="totalAmount">$0</span>
+    </div>
+    <input class="table-input" id="tableNumber" type="text" placeholder="輸入桌號（例：A1）" maxlength="10">
+    <button class="submit-btn" id="submitBtn" onclick="submitOrder()">送出訂單</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let menuItems = [];
+let cart = {};
+let currentCategory = '全部';
+
+async function loadMenu() {
+  const res = await fetch('/api/menu');
+  const json = await res.json();
+  menuItems = json.data || [];
+  renderTabs();
+  renderMenu(currentCategory);
+}
+
+function renderTabs() {
+  const categories = ['全部', ...new Set(menuItems.map(i => i.category))];
+  const tabs = document.getElementById('tabs');
+  tabs.innerHTML = categories.map(c =>
+    `<button class="tab ${c === currentCategory ? 'active' : ''}" onclick="selectCategory('${c}')">${c}</button>`
+  ).join('');
+}
+
+function selectCategory(cat) {
+  currentCategory = cat;
+  renderTabs();
+  renderMenu(cat);
+}
+
+function renderMenu(cat) {
+  const items = cat === '全部' ? menuItems : menuItems.filter(i => i.category === cat);
+  document.getElementById('menuGrid').innerHTML = items.map(item => `
+    <div class="menu-card" onclick="addToCart(${item.id})">
+      <h3>${item.name}</h3>
+      <p>${item.description || ''}</p>
+      <div>
+        <span class="price">$${item.price}</span>
+        <button class="add-btn" onclick="event.stopPropagation();addToCart(${item.id})">+</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function addToCart(id) {
+  const item = menuItems.find(i => i.id === id);
+  if (!item) return;
+  cart[id] = (cart[id] || 0) + 1;
+  renderCart();
+  showToast(`已加入：${item.name}`);
+}
+
+function changeQty(id, delta) {
+  cart[id] = (cart[id] || 0) + delta;
+  if (cart[id] <= 0) delete cart[id];
+  renderCart();
+}
+
+function renderCart() {
+  const cartEl = document.getElementById('cartItems');
+  const totalEl = document.getElementById('cartTotal');
+  const totalAmtEl = document.getElementById('totalAmount');
+  const ids = Object.keys(cart);
+
+  if (ids.length === 0) {
+    cartEl.innerHTML = '<p class="cart-empty">尚未選擇餐點</p>';
+    totalEl.style.display = 'none';
+    return;
+  }
+
+  let total = 0;
+  cartEl.innerHTML = ids.map(id => {
+    const item = menuItems.find(i => i.id == id);
+    const subtotal = item.price * cart[id];
+    total += subtotal;
+    return `
+      <div class="cart-item">
+        <span class="cart-item-name">${item.name}</span>
+        <div class="qty-ctrl">
+          <button onclick="changeQty(${id}, -1)">-</button>
+          <span>${cart[id]}</span>
+          <button onclick="changeQty(${id}, 1)">+</button>
+        </div>
+        <span class="cart-item-price">$${subtotal}</span>
+      </div>`;
+  }).join('');
+
+  totalEl.style.display = 'flex';
+  totalAmtEl.textContent = '$' + total;
+}
+
+async function submitOrder() {
+  const tableNumber = document.getElementById('tableNumber').value.trim();
+  if (!tableNumber) { showToast('請輸入桌號'); return; }
+  if (Object.keys(cart).length === 0) { showToast('請選擇餐點'); return; }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = '送出中...';
+
+  const payload = {
+    tableNumber,
+    items: Object.entries(cart).map(([id, qty]) => ({ menuItemId: parseInt(id), quantity: qty }))
+  };
+
+  try {
+    const res = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const json = await res.json();
+    if (json.success) {
+      cart = {};
+      document.getElementById('tableNumber').value = '';
+      renderCart();
+      showToast('訂單已送出！訂單編號：#' + json.data.id);
+    } else {
+      showToast('送出失敗：' + json.error);
+    }
+  } catch (e) {
+    showToast('網路錯誤，請重試');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '送出訂單';
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+loadMenu();
+</script>
+</body>
+</html>

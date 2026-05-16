@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理後台</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Microsoft JhengHei', sans-serif; background: #f5f5f5; }
+  header { background: #37474f; color: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 1.4rem; }
+  nav a { color: #ccc; text-decoration: none; font-size: 0.9rem; margin-left: 16px; }
+  nav a:hover { color: white; }
+  .container { max-width: 1000px; margin: 24px auto; padding: 0 16px; }
+  .card { background: white; border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 24px; }
+  .card h2 { font-size: 1.1rem; margin-bottom: 16px; color: #37474f; border-bottom: 2px solid #37474f; padding-bottom: 8px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group label { font-size: 0.85rem; color: #555; font-weight: bold; }
+  .form-group input, .form-group select { padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; }
+  .form-group input:focus, .form-group select:focus { outline: none; border-color: #37474f; }
+  .form-actions { display: flex; gap: 8px; margin-top: 4px; }
+  .btn { padding: 9px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: bold; }
+  .btn-primary { background: #37474f; color: white; }
+  .btn-danger { background: #c62828; color: white; }
+  .btn-secondary { background: #eee; color: #333; }
+  .btn:hover { opacity: 0.85; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th { background: #37474f; color: white; padding: 10px 12px; text-align: left; }
+  td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:hover td { background: #fafafa; }
+  .badge-avail { background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; }
+  .badge-unavail { background: #ffebee; color: #c62828; padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; }
+  .actions { display: flex; gap: 6px; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #323232; color: white; padding: 12px 24px; border-radius: 6px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; font-size: 0.9rem; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚙ 管理後台</h1>
+  <nav><a href="/">點餐</a><a href="/kitchen.html">廚房</a></nav>
+</header>
+
+<div class="container">
+  <div class="card">
+    <h2 id="formTitle">新增菜單</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>餐點名稱 *</label>
+        <input id="fname" type="text" placeholder="例：招牌漢堡">
+      </div>
+      <div class="form-group">
+        <label>分類 *</label>
+        <input id="fcategory" type="text" placeholder="例：主食、飲料、甜點">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>價格 *</label>
+        <input id="fprice" type="number" min="0" step="1" placeholder="例：120">
+      </div>
+      <div class="form-group">
+        <label>狀態</label>
+        <select id="favailable">
+          <option value="true">上架</option>
+          <option value="false">下架</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px">
+      <label>描述</label>
+      <input id="fdesc" type="text" placeholder="選填">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveItem()">儲存</button>
+      <button class="btn btn-secondary" onclick="resetForm()">清除</button>
+    </div>
+    <input type="hidden" id="editId">
+  </div>
+
+  <div class="card">
+    <h2>菜單列表</h2>
+    <table>
+      <thead>
+        <tr><th>名稱</th><th>分類</th><th>價格</th><th>描述</th><th>狀態</th><th>操作</th></tr>
+      </thead>
+      <tbody id="menuTable"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let items = [];
+
+async function loadItems() {
+  const res = await fetch('/api/menu/all');
+  const json = await res.json();
+  items = json.data || [];
+  renderTable();
+}
+
+function renderTable() {
+  document.getElementById('menuTable').innerHTML = items.map(item => `
+    <tr>
+      <td><strong>${item.name}</strong></td>
+      <td>${item.category}</td>
+      <td>$${item.price}</td>
+      <td>${item.description || '-'}</td>
+      <td><span class="${item.available ? 'badge-avail' : 'badge-unavail'}">${item.available ? '上架' : '下架'}</span></td>
+      <td class="actions">
+        <button class="btn btn-secondary" onclick="editItem(${item.id})">編輯</button>
+        <button class="btn btn-danger" onclick="deleteItem(${item.id})">刪除</button>
+      </td>
+    </tr>`).join('');
+}
+
+function editItem(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  document.getElementById('editId').value = id;
+  document.getElementById('fname').value = item.name;
+  document.getElementById('fcategory').value = item.category;
+  document.getElementById('fprice').value = item.price;
+  document.getElementById('fdesc').value = item.description || '';
+  document.getElementById('favailable').value = item.available;
+  document.getElementById('formTitle').textContent = '編輯菜單';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function saveItem() {
+  const name = document.getElementById('fname').value.trim();
+  const category = document.getElementById('fcategory').value.trim();
+  const price = document.getElementById('fprice').value;
+  if (!name || !category || !price) { showToast('請填寫必填欄位'); return; }
+
+  const payload = {
+    name,
+    category,
+    price: parseFloat(price),
+    description: document.getElementById('fdesc').value.trim(),
+    imageUrl: null,
+    available: document.getElementById('favailable').value === 'true'
+  };
+
+  const editId = document.getElementById('editId').value;
+  const url = editId ? `/api/menu/${editId}` : '/api/menu';
+  const method = editId ? 'PUT' : 'POST';
+
+  const res = await fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json();
+  if (json.success) {
+    showToast(editId ? '已更新' : '已新增');
+    resetForm();
+    loadItems();
+  } else {
+    showToast('儲存失敗：' + json.error);
+  }
+}
+
+async function deleteItem(id) {
+  if (!confirm('確定要刪除這個餐點嗎？')) return;
+  const res = await fetch(`/api/menu/${id}`, { method: 'DELETE' });
+  const json = await res.json();
+  if (json.success) { showToast('已刪除'); loadItems(); }
+  else showToast('刪除失敗：' + json.error);
+}
+
+function resetForm() {
+  ['fname','fcategory','fprice','fdesc','editId'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('favailable').value = 'true';
+  document.getElementById('formTitle').textContent = '新增菜單';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+loadItems();
+</script>
+</body>
+</html>

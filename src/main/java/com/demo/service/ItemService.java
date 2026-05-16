@@ -1,6 +1,6 @@
 package com.demo.service;
 
-import com.demo.model.Item;
+import com.demo.entity.Item;
 import com.demo.repository.ItemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
