@@ -16,6 +16,10 @@ public class ItemController {
 
     private final ItemService itemService;
 
+    public ItemController(ItemService itemService) {
+        this.itemService = itemService;
+    }
+
     @GetMapping
     public List<Item> getAll(@RequestParam(required = false) String search) {
         if (search != null && !search.isBlank()) {
