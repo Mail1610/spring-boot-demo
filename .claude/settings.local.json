@@ -26,7 +26,8 @@
       "Bash(rm -f \"/mnt/c/Users/ian/OneDrive/Desktop/spring-boot-demo/data/\"*.mv.db \"/mnt/c/Users/ian/OneDrive/Desktop/spring-boot-demo/data/\"*.trace.db)",
       "Read(//mnt/c/Users/ian/OneDrive/Desktop/spring-boot-demo/**)",
       "Skill(keybindings-help)",
-      "PowerShell(Rename-Item *)"
+      "PowerShell(Rename-Item *)",
+      "Bash(git checkout *)"
     ]
   }
 }
