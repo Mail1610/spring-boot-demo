@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理後台</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Microsoft JhengHei', sans-serif; background: #f5f5f5; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Microsoft JhengHei', sans-serif; background: #f5f5f5; }
   header { background: #37474f; color: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
   header h1 { font-size: 1.4rem; }
   nav a { color: #ccc; text-decoration: none; font-size: 0.9rem; margin-left: 16px; }
@@ -14,18 +14,30 @@
   .container { max-width: 1000px; margin: 24px auto; padding: 0 16px; }
   .card { background: white; border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 24px; }
   .card h2 { font-size: 1.1rem; margin-bottom: 16px; color: #37474f; border-bottom: 2px solid #37474f; padding-bottom: 8px; }
+  .stats-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .stat-box { flex: 1; min-width: 80px; background: #f5f7f8; border-radius: 8px; padding: 16px 12px; text-align: center; }
+  .stat-num { font-size: 1.8rem; font-weight: bold; color: #37474f; line-height: 1; }
+  .stat-label { font-size: 0.78rem; color: #777; margin-top: 6px; }
+  .stat-box.revenue .stat-num { color: #c62828; }
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
   .form-group { display: flex; flex-direction: column; gap: 4px; }
   .form-group label { font-size: 0.85rem; color: #555; font-weight: bold; }
-  .form-group input, .form-group select { padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; }
+  .form-group input, .form-group select { padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; }
   .form-group input:focus, .form-group select:focus { outline: none; border-color: #37474f; }
+  @media (max-width: 600px) {
+    .form-row { grid-template-columns: 1fr; }
+    .container { padding: 0 8px; }
+    .stats-row { gap: 8px; }
+    .stat-num { font-size: 1.4rem; }
+  }
   .form-actions { display: flex; gap: 8px; margin-top: 4px; }
-  .btn { padding: 9px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: bold; }
+  .btn { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: bold; min-height: 44px; }
   .btn-primary { background: #37474f; color: white; }
   .btn-danger { background: #c62828; color: white; }
   .btn-secondary { background: #eee; color: #333; }
   .btn:hover { opacity: 0.85; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 520px; }
   th { background: #37474f; color: white; padding: 10px 12px; text-align: left; }
   td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
   tr:hover td { background: #fafafa; }
@@ -46,9 +58,36 @@
 <body>
 <header>
   <h1>⚙ 管理後台</h1>
+  <nav>
+    <a href="/">點餐頁面</a>
+    <a href="/kitchen.html">廚房顯示</a>
+  </nav>
 </header>
 
 <div class="container">
+
+  <div class="card">
+    <h2>今日概況</h2>
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-num" id="statPending">-</div>
+        <div class="stat-label">待處理</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="statPreparing">-</div>
+        <div class="stat-label">製作中</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="statDone">-</div>
+        <div class="stat-label">已完成</div>
+      </div>
+      <div class="stat-box revenue">
+        <div class="stat-num" id="statRevenue">-</div>
+        <div class="stat-label">今日營收</div>
+      </div>
+    </div>
+  </div>
+
   <div class="card">
     <h2 id="formTitle">新增菜單</h2>
     <div class="form-row">
@@ -74,9 +113,15 @@
         </select>
       </div>
     </div>
-    <div class="form-group" style="margin-bottom:12px">
-      <label>描述</label>
-      <input id="fdesc" type="text" placeholder="選填">
+    <div class="form-row">
+      <div class="form-group">
+        <label>描述</label>
+        <input id="fdesc" type="text" placeholder="選填">
+      </div>
+      <div class="form-group">
+        <label>圖片網址</label>
+        <input id="fimageUrl" type="url" placeholder="選填（https://...）">
+      </div>
     </div>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="saveItem()">儲存</button>
@@ -96,12 +141,14 @@
 
   <div class="card">
     <h2>菜單列表</h2>
-    <table>
-      <thead>
-        <tr><th>名稱</th><th>分類</th><th>價格</th><th>描述</th><th>狀態</th><th>操作</th></tr>
-      </thead>
-      <tbody id="menuTable"></tbody>
-    </table>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>名稱</th><th>分類</th><th>價格</th><th>描述</th><th>狀態</th><th>操作</th></tr>
+        </thead>
+        <tbody id="menuTable"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -120,7 +167,7 @@ async function loadItems() {
 function renderTable() {
   document.getElementById('menuTable').innerHTML = items.map(item => `
     <tr>
-      <td><strong>${item.name}</strong></td>
+      <td><strong>${item.name}</strong>${item.imageUrl ? ' <span title="有圖片">🖼</span>' : ''}</td>
       <td>${item.category}</td>
       <td>$${item.price}</td>
       <td>${item.description || '-'}</td>
@@ -140,6 +187,7 @@ function editItem(id) {
   document.getElementById('fcategory').value = item.category;
   document.getElementById('fprice').value = item.price;
   document.getElementById('fdesc').value = item.description || '';
+  document.getElementById('fimageUrl').value = item.imageUrl || '';
   document.getElementById('favailable').value = item.available;
   document.getElementById('formTitle').textContent = '編輯菜單';
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -156,7 +204,7 @@ async function saveItem() {
     category,
     price: parseFloat(price),
     description: document.getElementById('fdesc').value.trim(),
-    imageUrl: null,
+    imageUrl: document.getElementById('fimageUrl').value.trim() || null,
     available: document.getElementById('favailable').value === 'true'
   };
 
@@ -188,7 +236,7 @@ async function deleteItem(id) {
 }
 
 function resetForm() {
-  ['fname','fcategory','fprice','fdesc','editId'].forEach(id => document.getElementById(id).value = '');
+  ['fname','fcategory','fprice','fdesc','fimageUrl','editId'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('favailable').value = 'true';
   document.getElementById('formTitle').textContent = '新增菜單';
 }
@@ -200,7 +248,23 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
+async function loadStats() {
+  try {
+    const res = await fetch('/api/orders');
+    const json = await res.json();
+    const orders = json.data || [];
+    const today = new Date().toDateString();
+    const todayOrders = orders.filter(o => new Date(o.createdAt).toDateString() === today);
+    document.getElementById('statPending').textContent = todayOrders.filter(o => o.status === 'PENDING').length;
+    document.getElementById('statPreparing').textContent = todayOrders.filter(o => o.status === 'PREPARING').length;
+    document.getElementById('statDone').textContent = todayOrders.filter(o => o.status === 'DONE').length;
+    const revenue = todayOrders.filter(o => o.status === 'DONE').reduce((s, o) => s + Number(o.totalAmount), 0);
+    document.getElementById('statRevenue').textContent = '$' + revenue;
+  } catch(e) {}
+}
+
 loadItems();
+loadStats();
 
 let tables = JSON.parse(localStorage.getItem('qr_tables') || '[]');
 
@@ -258,6 +322,6 @@ function renderTables() {
 }
 
 </script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" onload="renderTables()"></script>
+<script src="/qrcode.min.js" onload="renderTables()"></script>
 </body>
 </html>

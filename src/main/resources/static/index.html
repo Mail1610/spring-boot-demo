@@ -5,43 +5,59 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>點餐系統</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Microsoft JhengHei', sans-serif; background: #f5f5f5; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Microsoft JhengHei', sans-serif; background: #f5f5f5; }
   header { background: #d32f2f; color: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
   header h1 { font-size: 1.4rem; }
   .layout { display: flex; gap: 16px; padding: 16px; max-width: 1200px; margin: 0 auto; }
-  .menu-section { flex: 1; }
-  .cart-section { width: 320px; background: white; border-radius: 8px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); align-self: flex-start; position: sticky; top: 16px; }
+  .menu-section { flex: 1; min-width: 0; }
+  .cart-section { width: 320px; background: white; border-radius: 8px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); align-self: flex-start; position: -webkit-sticky; position: sticky; top: 16px; }
   .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
-  .tab { padding: 8px 16px; border: none; border-radius: 20px; background: #e0e0e0; cursor: pointer; font-size: 0.9rem; }
+  .tab { padding: 10px 16px; border: none; border-radius: 20px; background: #e0e0e0; cursor: pointer; font-size: 0.9rem; min-height: 44px; }
   .tab.active { background: #d32f2f; color: white; }
-  .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-  .menu-card { background: white; border-radius: 8px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); cursor: pointer; transition: transform 0.15s; }
+  .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+  .menu-card { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.08); cursor: pointer; transition: transform 0.15s; position: relative; }
   .menu-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-  .menu-card h3 { font-size: 1rem; margin-bottom: 4px; }
-  .menu-card p { font-size: 0.8rem; color: #666; margin-bottom: 8px; }
-  .menu-card .price { color: #d32f2f; font-weight: bold; font-size: 1.1rem; }
-  .menu-card .add-btn { float: right; background: #d32f2f; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 1.2rem; line-height: 28px; text-align: center; }
+  .menu-card-visual { height: 90px; display: flex; align-items: center; justify-content: center; font-size: 2.4rem; background: #fafafa; overflow: hidden; }
+  .menu-card-visual img { width: 100%; height: 100%; object-fit: cover; }
+  .menu-card-body { padding: 10px 12px 12px; }
+  .menu-card h3 { font-size: 0.95rem; margin-bottom: 2px; }
+  .menu-card p { font-size: 0.75rem; color: #888; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .menu-card .price { color: #d32f2f; font-weight: bold; font-size: 1.05rem; }
+  .menu-card .add-btn { float: right; background: #d32f2f; color: white; border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; font-size: 1.2rem; line-height: 32px; text-align: center; }
+  .menu-card-qty { position: absolute; top: 6px; right: 6px; background: #d32f2f; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 0.72rem; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
   .cart-section h2 { font-size: 1.1rem; margin-bottom: 12px; border-bottom: 2px solid #d32f2f; padding-bottom: 8px; }
   .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
   .cart-item-name { font-size: 0.9rem; flex: 1; }
   .qty-ctrl { display: flex; align-items: center; gap: 6px; }
-  .qty-ctrl button { width: 24px; height: 24px; border: 1px solid #ccc; background: white; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+  .qty-ctrl button { width: 36px; height: 36px; border: 1px solid #ccc; background: white; border-radius: 4px; cursor: pointer; font-size: 1rem; }
   .qty-ctrl span { min-width: 20px; text-align: center; font-size: 0.9rem; }
   .cart-item-price { font-size: 0.9rem; color: #d32f2f; min-width: 60px; text-align: right; }
   .cart-empty { text-align: center; color: #999; padding: 24px 0; font-size: 0.9rem; }
   .cart-total { display: flex; justify-content: space-between; font-weight: bold; padding: 12px 0; border-top: 2px solid #eee; margin-top: 8px; }
-  .table-input { width: 100%; padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; margin: 12px 0; font-size: 1rem; }
-  .submit-btn { width: 100%; padding: 12px; background: #d32f2f; color: white; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; font-weight: bold; }
+  .table-input { width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px; margin: 12px 0; font-size: 16px; }
+  .submit-btn { width: 100%; padding: 14px; background: #d32f2f; color: white; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; font-weight: bold; min-height: 44px; }
   .submit-btn:hover { background: #b71c1c; }
   .submit-btn:disabled { background: #ccc; cursor: not-allowed; }
-  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #323232; color: white; padding: 12px 24px; border-radius: 6px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; }
+  .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: #323232; color: white; padding: 12px 24px; border-radius: 6px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; white-space: nowrap; }
   .toast.show { opacity: 1; }
-  .nav-links { display: flex; gap: 16px; }
-  .nav-links a { color: white; text-decoration: none; font-size: 0.9rem; opacity: 0.85; }
-  .nav-links a:hover { opacity: 1; }
   .table-input[readonly] { background: #e8f5e9; border-color: #4caf50; color: #2e7d32; }
   .table-locked-hint { font-size: 0.8rem; color: #2e7d32; margin: -8px 0 8px; }
+  .mobile-cart-bar { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: #d32f2f; color: white; padding: 14px 20px; align-items: center; justify-content: space-between; font-weight: bold; z-index: 100; cursor: pointer; box-shadow: 0 -2px 8px rgba(0,0,0,0.25); }
+  .order-success-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; z-index: 200; animation: fadeIn 0.2s; }
+  .order-success-box { background: white; border-radius: 16px; padding: 36px 28px; text-align: center; max-width: 300px; width: 88%; }
+  .order-success-icon { font-size: 3.5rem; margin-bottom: 12px; }
+  .order-success-title { font-size: 1.3rem; font-weight: bold; color: #2e7d32; margin-bottom: 10px; }
+  .order-success-sub { color: #555; font-size: 0.9rem; line-height: 1.6; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; }
+    .cart-section { width: 100%; position: static; order: -1; }
+    .menu-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    .mobile-cart-bar { display: flex; }
+    body { padding-bottom: 58px; }
+    .toast { bottom: 80px; }
+  }
 </style>
 </head>
 <body>
@@ -66,12 +82,22 @@
   </div>
 </div>
 
+<div class="mobile-cart-bar" id="mobileCartBar" onclick="document.querySelector('.cart-section').scrollIntoView({behavior:'smooth'})" style="display:none">
+  <span>🛒 查看購物車 (<span id="mbarCount">0</span>)</span>
+  <span id="mbarTotal">$0</span>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 let menuItems = [];
 let cart = {};
 let currentCategory = '全部';
+const CATEGORY_EMOJI = {
+  '飲料': '🥤', '甜點': '🍰', '甜食': '🍰', '湯品': '🍜', '主食': '🍱',
+  '主菜': '🍱', '小吃': '🍢', '點心': '🍢', '沙拉': '🥗', '漢堡': '🍔',
+  '披薩': '🍕', '炸物': '🍟', '麵食': '🍝', '燒烤': '🍖'
+};
 
 async function loadMenu() {
   const res = await fetch('/api/menu');
@@ -84,9 +110,10 @@ async function loadMenu() {
 function renderTabs() {
   const categories = ['全部', ...new Set(menuItems.map(i => i.category))];
   const tabs = document.getElementById('tabs');
-  tabs.innerHTML = categories.map(c =>
-    `<button class="tab ${c === currentCategory ? 'active' : ''}" onclick="selectCategory('${c}')">${c}</button>`
-  ).join('');
+  tabs.innerHTML = categories.map(c => {
+    const count = c === '全部' ? menuItems.length : menuItems.filter(i => i.category === c).length;
+    return `<button class="tab ${c === currentCategory ? 'active' : ''}" onclick="selectCategory('${c}')">${c} <small style="opacity:0.7">(${count})</small></button>`;
+  }).join('');
 }
 
 function selectCategory(cat) {
@@ -95,18 +122,51 @@ function selectCategory(cat) {
   renderMenu(cat);
 }
 
+function getEmoji(cat) {
+  return CATEGORY_EMOJI[cat] || '🍽';
+}
+
 function renderMenu(cat) {
   const items = cat === '全部' ? menuItems : menuItems.filter(i => i.category === cat);
-  document.getElementById('menuGrid').innerHTML = items.map(item => `
-    <div class="menu-card" onclick="addToCart(${item.id})">
-      <h3>${item.name}</h3>
-      <p>${item.description || ''}</p>
-      <div>
-        <span class="price">$${item.price}</span>
-        <button class="add-btn" onclick="event.stopPropagation();addToCart(${item.id})">+</button>
+  document.getElementById('menuGrid').innerHTML = items.map(item => {
+    const qty = cart[item.id] || 0;
+    const visual = item.imageUrl
+      ? `<div class="menu-card-visual"><img src="${item.imageUrl}" alt="${item.name}" loading="lazy"></div>`
+      : `<div class="menu-card-visual">${getEmoji(item.category)}</div>`;
+    return `
+    <div class="menu-card" data-id="${item.id}" onclick="addToCart(${item.id})">
+      ${visual}
+      ${qty > 0 ? `<span class="menu-card-qty">${qty}</span>` : ''}
+      <div class="menu-card-body">
+        <h3>${item.name}</h3>
+        <p>${item.description || ' '}</p>
+        <div>
+          <span class="price">$${item.price}</span>
+          <button class="add-btn" onclick="event.stopPropagation();addToCart(${item.id})">+</button>
+        </div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
+}
+
+function updateMenuQtyBadges() {
+  document.querySelectorAll('.menu-card[data-id]').forEach(card => {
+    const id = card.dataset.id;
+    let badge = card.querySelector('.menu-card-qty');
+    const qty = cart[id] || 0;
+    if (qty > 0) {
+      if (badge) {
+        badge.textContent = qty;
+      } else {
+        badge = document.createElement('span');
+        badge.className = 'menu-card-qty';
+        badge.textContent = qty;
+        card.insertBefore(badge, card.querySelector('.menu-card-visual').nextSibling);
+      }
+    } else if (badge) {
+      badge.remove();
+    }
+  });
 }
 
 function addToCart(id) {
@@ -132,14 +192,18 @@ function renderCart() {
   if (ids.length === 0) {
     cartEl.innerHTML = '<p class="cart-empty">尚未選擇餐點</p>';
     totalEl.style.display = 'none';
+    document.getElementById('mobileCartBar').style.display = 'none';
+    updateMenuQtyBadges();
     return;
   }
 
   let total = 0;
+  let totalCount = 0;
   cartEl.innerHTML = ids.map(id => {
     const item = menuItems.find(i => i.id == id);
     const subtotal = item.price * cart[id];
     total += subtotal;
+    totalCount += cart[id];
     return `
       <div class="cart-item">
         <span class="cart-item-name">${item.name}</span>
@@ -154,6 +218,13 @@ function renderCart() {
 
   totalEl.style.display = 'flex';
   totalAmtEl.textContent = '$' + total;
+
+  const bar = document.getElementById('mobileCartBar');
+  bar.style.display = 'flex';
+  document.getElementById('mbarCount').textContent = totalCount;
+  document.getElementById('mbarTotal').textContent = '$' + total;
+
+  updateMenuQtyBadges();
 }
 
 async function submitOrder() {
@@ -179,9 +250,11 @@ async function submitOrder() {
     const json = await res.json();
     if (json.success) {
       cart = {};
-      document.getElementById('tableNumber').value = '';
       renderCart();
-      showToast('訂單已送出！訂單編號：#' + json.data.id);
+      showOrderSuccess(json.data.id, tableNumber);
+      if (!document.getElementById('tableNumber').readOnly) {
+        document.getElementById('tableNumber').value = '';
+      }
     } else {
       showToast('送出失敗：' + json.error);
     }
@@ -191,6 +264,20 @@ async function submitOrder() {
     btn.disabled = false;
     btn.textContent = '送出訂單';
   }
+}
+
+function showOrderSuccess(orderId, table) {
+  const overlay = document.createElement('div');
+  overlay.className = 'order-success-overlay';
+  overlay.innerHTML = `
+    <div class="order-success-box">
+      <div class="order-success-icon">✅</div>
+      <div class="order-success-title">訂單已送出！</div>
+      <div class="order-success-sub">訂單編號 <strong>#${orderId}</strong><br>桌號：${table}<br><br>廚房正在為您準備，請稍候</div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', () => overlay.remove());
+  setTimeout(() => overlay.remove(), 4000);
 }
 
 function showToast(msg) {

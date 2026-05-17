@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>廚房顯示</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Microsoft JhengHei', sans-serif; background: #1a1a2e; color: #eee; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Microsoft JhengHei', sans-serif; background: #1a1a2e; color: #eee; }
   header { background: #16213e; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e94560; }
   header h1 { font-size: 1.4rem; color: #e94560; }
   .status-bar { font-size: 0.85rem; color: #aaa; }
@@ -14,20 +14,29 @@
   .column h2 { font-size: 1rem; padding: 10px 16px; border-radius: 6px 6px 0 0; text-align: center; font-weight: bold; letter-spacing: 2px; }
   .pending h2 { background: #e67e22; }
   .preparing h2 { background: #2980b9; }
-  .order-card { background: #16213e; border-radius: 0 0 8px 8px; margin-bottom: 12px; overflow: hidden; border: 1px solid #0f3460; }
-  .order-card:not(:first-child) { border-radius: 8px; }
-  .order-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0f3460; }
+  .order-card { background: #16213e; border-radius: 8px; margin-bottom: 12px; overflow: hidden; border: 2px solid #0f3460; transition: border-color 0.3s; }
+  .order-card.urgent-mid { border-color: #f39c12; }
+  .order-card.urgent-high { border-color: #e74c3c; animation: pulse-border 1.2s ease-in-out infinite; }
+  @keyframes pulse-border { 0%,100% { border-color: #e74c3c; } 50% { border-color: #ff8a80; } }
+  .order-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 14px; background: #0f3460; }
   .order-header .table { font-weight: bold; font-size: 1.1rem; color: #e94560; }
-  .order-header .time { font-size: 0.8rem; color: #aaa; }
+  .order-header .time-info { font-size: 0.8rem; color: #aaa; text-align: right; line-height: 1.5; }
+  .elapsed { display: block; font-size: 0.8rem; margin-top: 2px; }
+  .urgent-mid .elapsed { color: #f39c12; font-weight: bold; }
+  .urgent-high .elapsed { color: #e74c3c; font-weight: bold; }
   .order-items { padding: 10px 14px; }
   .order-item { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.95rem; border-bottom: 1px solid #0f3460; }
   .order-item:last-child { border-bottom: none; }
   .order-item .qty { color: #e94560; font-weight: bold; }
   .order-footer { padding: 10px 14px; display: flex; gap: 8px; justify-content: flex-end; background: #0a1628; }
-  .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: bold; }
+  .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: bold; min-height: 44px; }
   .btn-start { background: #2980b9; color: white; }
   .btn-done { background: #27ae60; color: white; }
   .btn:hover { opacity: 0.85; }
+  @media (max-width: 640px) {
+    .layout { grid-template-columns: 1fr; }
+    header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  }
   .empty { text-align: center; color: #555; padding: 40px; font-size: 0.9rem; }
   .badge { background: #e94560; color: white; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; margin-left: 8px; }
   .total { font-size: 0.85rem; color: #aaa; padding: 0 14px 10px; }
@@ -56,6 +65,47 @@
 </div>
 
 <script>
+let knownOrderIds = new Set();
+let firstLoad = true;
+
+function playNewOrderSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [[0, 880], [0.15, 1100], [0.3, 880]].forEach(([t, freq]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.25, ctx.currentTime + t);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.12);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + 0.13);
+    });
+  } catch(e) {}
+}
+
+function elapsedMins(dt) {
+  if (!dt) return 0;
+  return Math.floor((Date.now() - new Date(dt)) / 60000);
+}
+
+function elapsedLabel(dt) {
+  const m = elapsedMins(dt);
+  if (m < 1) return '剛剛';
+  if (m < 60) return m + ' 分鐘前';
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return h + ' 小時' + (r > 0 ? r + ' 分' : '') + '前';
+}
+
+function urgencyClass(dt) {
+  const m = elapsedMins(dt);
+  if (m >= 15) return 'urgent-high';
+  if (m >= 8) return 'urgent-mid';
+  return '';
+}
+
 async function loadOrders() {
   try {
     const [pendingRes, preparingRes] = await Promise.all([
@@ -64,6 +114,14 @@ async function loadOrders() {
     ]);
     const pending = (await pendingRes.json()).data || [];
     const preparing = (await preparingRes.json()).data || [];
+
+    const currentIds = new Set([...pending, ...preparing].map(o => o.id));
+    if (!firstLoad) {
+      const hasNew = [...currentIds].some(id => !knownOrderIds.has(id));
+      if (hasNew) playNewOrderSound();
+    }
+    firstLoad = false;
+    knownOrderIds = currentIds;
 
     document.getElementById('pendingCount').textContent = pending.length;
     document.getElementById('preparingCount').textContent = preparing.length;
@@ -78,10 +136,13 @@ async function loadOrders() {
 function renderOrders(orders, type) {
   if (orders.length === 0) return `<p class="empty">目前沒有訂單</p>`;
   return orders.map(o => `
-    <div class="order-card">
+    <div class="order-card ${urgencyClass(o.createdAt)}">
       <div class="order-header">
         <span class="table">桌號：${o.tableNumber}</span>
-        <span class="time">#${o.id} · ${formatTime(o.createdAt)}</span>
+        <span class="time-info">
+          #${o.id} · ${formatTime(o.createdAt)}
+          <span class="elapsed">⏱ ${elapsedLabel(o.createdAt)}</span>
+        </span>
       </div>
       <div class="order-items">
         ${o.items.map(i => `
@@ -114,7 +175,7 @@ function formatTime(dt) {
 }
 
 loadOrders();
-setInterval(loadOrders, 10000);
+setInterval(loadOrders, 5000);
 </script>
 </body>
 </html>
