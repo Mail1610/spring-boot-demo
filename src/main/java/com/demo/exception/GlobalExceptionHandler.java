@@ -1,6 +1,7 @@
 package com.demo.exception;
 
 import com.demo.common.ApiResponse;
+import com.demo.common.LogUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +28,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiResponse<Void> handleGeneral(Exception ex) {
+        LogUtils.error("Unexpected error: {}", ex.getMessage(), ex);
         return ApiResponse.error("Internal server error");
     }
 }
