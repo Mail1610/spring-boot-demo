@@ -19,6 +19,9 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    @Value("${app.security.enabled:true}")
+    private boolean securityEnabled;
+
     @Value("${app.admin.username}")
     private String adminUsername;
 
@@ -31,22 +34,24 @@ public class SecurityConfig {
             .csrf(csrf -> csrf
                 .ignoringRequestMatchers("/api/**", "/h2-console/**"))
             .headers(headers -> headers
-                .frameOptions(frame -> frame.sameOrigin()))
-            .authorizeHttpRequests(auth -> auth
-                // ── 店員系統（需要登入）──────────────────────────────
-                .requestMatchers("/kitchen.html", "/admin.html").hasRole("STAFF")
-                // 廚房 API：查看訂單、更新訂單狀態
-                .requestMatchers(HttpMethod.GET, "/api/orders").hasRole("STAFF")
-                .requestMatchers(HttpMethod.PUT, "/api/orders/**").hasRole("STAFF")
-                // 後台 API：菜單管理
-                .requestMatchers("/api/menu/all").hasRole("STAFF")
-                .requestMatchers(HttpMethod.POST, "/api/menu").hasRole("STAFF")
-                .requestMatchers(HttpMethod.PUT, "/api/menu/**").hasRole("STAFF")
-                .requestMatchers(HttpMethod.DELETE, "/api/menu/**").hasRole("STAFF")
-                // ── 客人系統（公開）──────────────────────────────────
-                // index.html、GET /api/menu（上架品項）、POST /api/orders（下單）
-                .anyRequest().permitAll())
-            .formLogin(withDefaults());
+                .frameOptions(frame -> frame.sameOrigin()));
+
+        if (securityEnabled) {
+            http
+                .authorizeHttpRequests(auth -> auth
+                    .requestMatchers("/kitchen.html", "/admin.html").hasRole("STAFF")
+                    .requestMatchers(HttpMethod.GET, "/api/orders").hasRole("STAFF")
+                    .requestMatchers(HttpMethod.PUT, "/api/orders/**").hasRole("STAFF")
+                    .requestMatchers("/api/menu/all").hasRole("STAFF")
+                    .requestMatchers(HttpMethod.POST, "/api/menu").hasRole("STAFF")
+                    .requestMatchers(HttpMethod.PUT, "/api/menu/**").hasRole("STAFF")
+                    .requestMatchers(HttpMethod.DELETE, "/api/menu/**").hasRole("STAFF")
+                    .anyRequest().permitAll())
+                .formLogin(withDefaults());
+        } else {
+            http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+        }
+
         return http.build();
     }
 

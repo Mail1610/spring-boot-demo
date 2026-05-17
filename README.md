@@ -69,7 +69,7 @@ mvn spring-boot:run
 | 廚房顯示 | `http://localhost:8080/kitchen.html` | 查看待處理訂單、更新訂單狀態 |
 | 後台管理 | `http://localhost:8080/admin.html` | 菜單管理、訂單總覽 |
 
-登入帳號在 `application.properties` 設定：
+登入帳號在 `application.properties` 設定~~~~：
 
 ```properties
 app.admin.username=admin
