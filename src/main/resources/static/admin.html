@@ -34,6 +34,13 @@
   .actions { display: flex; gap: 6px; }
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #323232; color: white; padding: 12px 24px; border-radius: 6px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; font-size: 0.9rem; }
   .toast.show { opacity: 1; }
+  .table-add-row { display: flex; gap: 8px; margin-bottom: 16px; }
+  .table-add-row input { flex: 1; padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; }
+  .qr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
+  .qr-card { background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; text-align: center; }
+  .qr-card .table-label { font-weight: bold; font-size: 1.1rem; margin-bottom: 8px; color: #37474f; }
+  .qr-card .qr-actions { display: flex; gap: 6px; justify-content: center; margin-top: 8px; }
+  .qr-empty { color: #999; text-align: center; padding: 24px 0; font-size: 0.9rem; }
 </style>
 </head>
 <body>
@@ -76,6 +83,15 @@
       <button class="btn btn-secondary" onclick="resetForm()">清除</button>
     </div>
     <input type="hidden" id="editId">
+  </div>
+
+  <div class="card">
+    <h2>桌號 QR Code 管理</h2>
+    <div class="table-add-row">
+      <input id="tableInput" type="text" placeholder="輸入桌號（例：A1）" maxlength="10" onkeydown="if(event.key==='Enter')addTable()">
+      <button class="btn btn-primary" onclick="addTable()">新增</button>
+    </div>
+    <div id="tableGrid" class="qr-grid"></div>
   </div>
 
   <div class="card">
@@ -185,6 +201,63 @@ function showToast(msg) {
 }
 
 loadItems();
+
+let tables = JSON.parse(localStorage.getItem('qr_tables') || '[]');
+
+function saveTables() {
+  localStorage.setItem('qr_tables', JSON.stringify(tables));
+}
+
+function addTable() {
+  const input = document.getElementById('tableInput');
+  const name = input.value.trim().toUpperCase();
+  if (!name) { showToast('請輸入桌號'); return; }
+  if (tables.includes(name)) { showToast('桌號已存在'); return; }
+  tables.push(name);
+  saveTables();
+  input.value = '';
+  renderTables();
+}
+
+function deleteTable(name) {
+  tables = tables.filter(t => t !== name);
+  saveTables();
+  renderTables();
+}
+
+function downloadQR(name) {
+  const canvas = document.getElementById('qr-' + name);
+  const link = document.createElement('a');
+  link.download = 'table-' + name + '.png';
+  link.href = canvas.toDataURL();
+  link.click();
+}
+
+function renderTables() {
+  const grid = document.getElementById('tableGrid');
+  if (tables.length === 0) {
+    grid.innerHTML = '<p class="qr-empty">尚未設定桌號，請新增</p>';
+    return;
+  }
+  grid.innerHTML = tables.map(name => `
+    <div class="qr-card">
+      <div class="table-label">桌 ${name}</div>
+      <canvas id="qr-${name}"></canvas>
+      <div class="qr-actions">
+        <button class="btn btn-secondary" onclick="downloadQR('${name}')">下載</button>
+        <button class="btn btn-danger" onclick="deleteTable('${name}')">刪除</button>
+      </div>
+    </div>`).join('');
+  if (typeof QRCode === 'undefined') return;
+  tables.forEach(name => {
+    const url = window.location.origin + '/?table=' + encodeURIComponent(name);
+    QRCode.toCanvas(document.getElementById('qr-' + name), url, { width: 128 }, function(err) {
+      if (err) console.error('QR error:', name, err);
+    });
+  });
+}
+
 </script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" onload="renderTables()"></script>
 </body>
 </html>

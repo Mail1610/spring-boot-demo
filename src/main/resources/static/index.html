@@ -40,6 +40,8 @@
   .nav-links { display: flex; gap: 16px; }
   .nav-links a { color: white; text-decoration: none; font-size: 0.9rem; opacity: 0.85; }
   .nav-links a:hover { opacity: 1; }
+  .table-input[readonly] { background: #e8f5e9; border-color: #4caf50; color: #2e7d32; }
+  .table-locked-hint { font-size: 0.8rem; color: #2e7d32; margin: -8px 0 8px; }
 </style>
 </head>
 <body>
@@ -198,7 +200,20 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
+function initTableFromUrl() {
+  const table = new URLSearchParams(window.location.search).get('table');
+  if (!table) return;
+  const input = document.getElementById('tableNumber');
+  input.value = table;
+  input.readOnly = true;
+  const hint = document.createElement('p');
+  hint.className = 'table-locked-hint';
+  hint.textContent = '📍 已透過 QR Code 自動帶入桌號';
+  input.insertAdjacentElement('afterend', hint);
+}
+
 loadMenu();
+initTableFromUrl();
 </script>
 </body>
 </html>
